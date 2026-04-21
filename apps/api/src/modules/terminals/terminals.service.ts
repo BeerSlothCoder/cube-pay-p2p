@@ -2,7 +2,6 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { TerminalsRepository } from './terminals.repository';
 import { CreateTerminalSchema, DiscoverTerminalsSchema } from '@cubepay/shared-types';
 import { z } from 'zod';
-// @ts-expect-error h3-js types
 import { latLngToCell, gridDisk, cellToBoundary } from 'h3-js';
 
 type CreateTerminalDto = z.infer<typeof CreateTerminalSchema>;

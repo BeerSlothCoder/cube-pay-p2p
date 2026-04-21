@@ -5,6 +5,10 @@ import { Queue } from 'bullmq';
 import { QUEUE_RELEASE_CONFIRMED } from '@cubepay/queue';
 import { ReleaseConfirmedJob, ReleaseConfirmedJobSchema } from '@cubepay/queue';
 import { CubePayLogger } from '@cubepay/logger';
+import { CreateEscrowRecordSchema } from '@cubepay/shared-types';
+import { z } from 'zod';
+
+type CreateEscrowDto = z.infer<typeof CreateEscrowRecordSchema>;
 
 @Injectable()
 export class EscrowService {
@@ -16,7 +20,7 @@ export class EscrowService {
     this.logger.setContext('EscrowService');
   }
 
-  async create(dto: Record<string, unknown>) {
+  async create(dto: CreateEscrowDto) {
     this.logger.audit('escrow.created', { escrowId: dto['escrowId'] });
     return this.repo.create(dto);
   }

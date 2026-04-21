@@ -9,7 +9,6 @@
     "target": "ES2021",
     "sourceMap": true,
     "outDir": "./dist",
-    "baseUrl": "./",
     "incremental": true,
     "skipLibCheck": true,
     "strictNullChecks": true,
@@ -18,11 +17,11 @@
     "forceConsistentCasingInFileNames": true,
     "noFallthroughCasesInSwitch": true,
     "paths": {
-      "@cubepay/shared-types": ["libs/shared-types/src/index.ts"],
-      "@cubepay/queue": ["libs/queue/src/index.ts"],
-      "@cubepay/crypto": ["libs/crypto/src/index.ts"],
-      "@cubepay/auth": ["libs/auth/src/index.ts"],
-      "@cubepay/logger": ["libs/logger/src/index.ts"]
+      "@cubepay/shared-types": ["./libs/shared-types/src/index.ts"],
+      "@cubepay/queue": ["./libs/queue/src/index.ts"],
+      "@cubepay/crypto": ["./libs/crypto/src/index.ts"],
+      "@cubepay/auth": ["./libs/auth/src/index.ts"],
+      "@cubepay/logger": ["./libs/logger/src/index.ts"]
     }
   }
 }

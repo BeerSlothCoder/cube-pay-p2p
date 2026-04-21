@@ -13,6 +13,9 @@ import { IdempotencyService } from '../services/idempotency.service';
 import { PaymentQueueService } from '../services/payment-queue.service';
 import { CubePayLogger } from '@cubepay/logger';
 import { z } from 'zod';
+import { SupportedChainSchema } from '@cubepay/shared-types';
+
+type SupportedChain = z.infer<typeof SupportedChainSchema>;
 
 // Revolut ORDER_COMPLETED webhook shape
 const RevolutWebhookSchema = z.object({
@@ -92,7 +95,7 @@ export class RevolutWebhookController {
       escrowId,
       revolut_order_id: payload.order_id,
       buyerWallet: meta.buyer_wallet ?? '',
-      chain: meta.chain ?? 'ethereum',
+      chain: (meta.chain ?? 'ethereum') as SupportedChain,
       contractAddress: meta.contract_address ?? '',
       nonce: parseInt(meta.nonce ?? '1', 10),
       encryptedBlob: meta.encrypted_blob ?? '',
