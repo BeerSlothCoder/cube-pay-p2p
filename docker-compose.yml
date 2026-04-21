@@ -1,0 +1,147 @@
+version: '3.9'
+
+services:
+  # ─── Infrastructure ───────────────────────────────────────────────────────
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-}
+    volumes:
+      - redis_data:/data
+    networks:
+      - cubepay-internal
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ─── Core API (public-facing) ──────────────────────────────────────────────
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    ports:
+      - '3001:3001'  # Only public port
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3001
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:5175}
+      JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      BLIND_VAULT_URL: http://blind-vault:3004
+      REGULATORY_PUBLIC_KEY_PEM: ${REGULATORY_PUBLIC_KEY_PEM}
+      KYC_WEBHOOK_SECRET: ${KYC_WEBHOOK_SECRET}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - cubepay-internal
+    # api does NOT depend on oracle or payment — they're downstream
+
+  # ─── Payment webhook handler (internal) ───────────────────────────────────
+
+  payment:
+    build:
+      context: .
+      dockerfile: apps/payment/Dockerfile
+    restart: unless-stopped
+    # NOT exposed to host — accessed only via api or API gateway
+    expose:
+      - '3003'
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3003
+      REVOLUT_WEBHOOK_SECRET: ${REVOLUT_WEBHOOK_SECRET}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - cubepay-internal
+
+  # ─── Oracle signer (isolated, no HTTP port) ────────────────────────────────
+
+  oracle:
+    build:
+      context: .
+      dockerfile: apps/oracle/Dockerfile
+    restart: unless-stopped
+    # NO ports exposed — queue-only service
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      USE_HSM: ${USE_HSM:-false}
+      ORACLE_PRIVATE_KEY: ${ORACLE_PRIVATE_KEY}
+      HSM_MOCK_URL: http://hsm-mock:3005
+      EVM_RPC_URL: ${EVM_RPC_URL}
+      SOLANA_RPC_URL: ${SOLANA_RPC_URL:-https://api.devnet.solana.com}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - cubepay-internal
+
+  # ─── Blind Vault (internal encrypted store) ────────────────────────────────
+
+  blind-vault:
+    build:
+      context: .
+      dockerfile: apps/blind-vault/Dockerfile
+    restart: unless-stopped
+    expose:
+      - '3004'
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: 3004
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      SUPABASE_URL: ${SUPABASE_URL}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - cubepay-internal
+
+  # ─── HSM Mock (dev only) ───────────────────────────────────────────────────
+
+  hsm-mock:
+    build:
+      context: .
+      dockerfile: apps/hsm-mock/Dockerfile
+    restart: unless-stopped
+    expose:
+      - '3005'
+    environment:
+      NODE_ENV: development
+      PORT: 3005
+      ORACLE_PRIVATE_KEY: ${ORACLE_PRIVATE_KEY}
+    profiles:
+      - dev  # Only starts with: docker compose --profile dev up
+    networks:
+      - cubepay-internal
+
+volumes:
+  redis_data:
+
+networks:
+  cubepay-internal:
+    driver: bridge
+    internal: true  # No external internet access for internal services
